@@ -1,4 +1,5 @@
 # LiveLens
 
-Team members:
+Team members: \\
+
 Rick m385liu@uwaterloo.ca
