@@ -65,7 +65,7 @@ def search_venues(
             total = conn.execute(count_query, params).scalar()
 
             query = text(f"""
-                SELECT id, name, city, capacity, tags
+                SELECT id, name, city, capacity, tags, image_url
                 FROM Venues
                 {where_clause}
                 ORDER BY {sort_by} {order}
@@ -80,6 +80,7 @@ def search_venues(
                     "city": row[2],
                     "capacity": row[3],
                     "tags": row[4],
+                    "image_url": row[5],
                 }
                 for row in result
             ]

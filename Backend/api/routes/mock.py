@@ -18,12 +18,12 @@ def generate_mock_data():
         with engine.begin() as conn: # Starts a transaction
             # 1. Venues (4 venues + Scotiabank)
             venues_data = [
-                {"id": str(uuid.uuid4()), "name": "Scotiabank Arena", "city": "Toronto", "capacity": 19800, "tags": '["sports", "concerts"]'},
-                {"id": str(uuid.uuid4()), "name": "Madison Square Garden", "city": "New York", "capacity": 19500, "tags": '["sports", "concerts"]'},
-                {"id": str(uuid.uuid4()), "name": "Staples Center", "city": "Los Angeles", "capacity": 20000, "tags": '["basketball", "music"]'},
-                {"id": str(uuid.uuid4()), "name": "The O2", "city": "London", "capacity": 20000, "tags": '["arena", "historic"]'}
+                {"id": str(uuid.uuid4()), "name": "Scotiabank Arena", "city": "Toronto", "capacity": 19800, "tags": '["sports", "concerts"]', "image_url": "https://images.unsplash.com/photo-1771911651651-e70a9eed91d1?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxjb25jZXJ0JTIwaGFsbCUyMHZlbnVlfGVufDF8fHx8MTc3MjMzMzM0OHww&ixlib=rb-4.1.0&q=80&w=1080"},
+                {"id": str(uuid.uuid4()), "name": "Madison Square Garden", "city": "New York", "capacity": 19500, "tags": '["sports", "concerts"]', "image_url": "https://images.unsplash.com/photo-1727096857692-e9dadf2bc92e?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxtdXNpYyUyMGZlc3RpdmFsJTIwc3RhZ2V8ZW58MXx8fHwxNzcyMzA2MDI3fDA&ixlib=rb-4.1.0&q=80&w=1080"},
+                {"id": str(uuid.uuid4()), "name": "Staples Center", "city": "Los Angeles", "capacity": 20000, "tags": '["basketball", "music"]', "image_url": "https://images.unsplash.com/photo-1630782863310-26f710fcbe31?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxqYXp6JTIwY2x1YiUyMGludGVyaW9yfGVufDF8fHx8MTc3MjMzMzM0OXww&ixlib=rb-4.1.0&q=80&w=1080"},
+                {"id": str(uuid.uuid4()), "name": "The O2", "city": "London", "capacity": 20000, "tags": '["arena", "historic"]', "image_url": "https://images.unsplash.com/photo-1771196888811-cc164e759780?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxuaWdodGNsdWIlMjBkYW5jZSUyMGZsb29yfGVufDF8fHx8MTc3MjMwNTQzM3ww&ixlib=rb-4.1.0&q=80&w=1080"}
             ]
-            conn.execute(text("INSERT INTO Venues (id, name, city, capacity, tags) VALUES (:id, :name, :city, :capacity, :tags) ON CONFLICT DO NOTHING"), venues_data)
+            conn.execute(text("INSERT INTO Venues (id, name, city, capacity, tags, image_url) VALUES (:id, :name, :city, :capacity, :tags, :image_url) ON CONFLICT DO NOTHING"), venues_data)
             
             res_venues = conn.execute(text("SELECT id, name FROM Venues")).fetchall()
             venue_dict = {row[1]: str(row[0]) for row in res_venues}
