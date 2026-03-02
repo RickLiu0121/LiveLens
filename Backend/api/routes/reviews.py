@@ -68,13 +68,15 @@ class ReviewImagesUpdate(BaseModel):
 @router.post("/")
 def create_review(review: ReviewCreate, user_id: str = Depends(get_current_user)):
     """
-    :param review: ReviewCreate object containing event details, seat info, and image URLs.
-    Submits a comprehensive event review, links it to a seat, and calculates ratings.
-    value needed from frontend:
-    auth_token: pls include 'Authorization': `Bearer ${storedToken}`in the header, this is mandatory
+    Submit a comprehensive event review, link it to a seat, and calculate ratings.
+    ### 1. Mandatory Header
+    - **Authorization**: `Bearer ${storedToken}` (Include JWT in the header)
+
+    ### 2. Request Body Example
+    ```json
     {
-        "event_id": "594671b6-da30-41f3-ab14-447e1268a49e", #pls use the event id from the event page
-        "venue_id": "36a7f0e4-7d37-46d9-89bd-55dae360a871", #pls use the venue id from the event page
+        "event_id": "594671b6-da30-41f3-ab14-447e1268a49e",
+        "venue_id": "36a7f0e4-7d37-46d9-89bd-55dae360a871",
         "section": "General Admission",
         "row": "Front",
         "seat_number": "101",
@@ -82,18 +84,22 @@ def create_review(review: ReviewCreate, user_id: str = Depends(get_current_user)
         "rating_sound": 5,
         "rating_value": 4,
         "price_paid": 299.99,
-        "text": "The atmosphere was electric! Postman test is working!",
-        "images": ["https://test.com/img_1.jpg", "https://test.com/img_2.jpg"] # (optional) if there are images, pls run presigned url first
+        "text": "The atmosphere was electric!",
+        "images": ["https://test.com/img_1.jpg", "https://test.com/img_2.jpg"]
     }
+    ```
 
-    ### Frontend Workflow Instructions:
+    ### 3. Frontend Workflow Instructions
     - **IF THE REVIEW HAS IMAGES**:
-        1. The frontend must FIRST call the `/presigned url` API for each image.
-        2. Upload the files directly to S3 using the provided instructions.
-        3. Collect the resulting `future_url` strings into a list.
-        4. Pass this list into the `images` field of THIS API.
-    - **IF NO IMAGES**: Simply leave the `images` field empty or null.
-    
+        1. Call this API to create the review and get the `review_id`.
+        2. Call `/img-presigned-url` API n times (where n is the number of images) using the `review_id` to get the presigned URLs.
+        3. Upload the images to S3 using the provided instructions.
+        4. Collect all the `future_url`s into a list.
+        5. Call `PATCH /img-database` API with the `review_id` and the list of URLs to attach the images to the review.
+    - **IF NO IMAGES**: Leave the `images` field empty or null.
+
+    ---
+    :param review: ReviewCreate object containing event details and seat info.
     :param user_id: Automatically injected from JWT token.
     :return: A success message, the new review_id, and the calculated overall_rating.
     """
@@ -176,21 +182,8 @@ def create_review(review: ReviewCreate, user_id: str = Depends(get_current_user)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to submit review: {str(e)}")
 
-# @router.patch("/{review_id}/images")
-# def update_review_images(review_id: str, payload: ReviewImagesUpdate, user_id: str = Depends(get_current_user)):
-#     """
-#     Called by the frontend AFTER successfully uploading images to S3.
-#     This links the final S3 URLs back to the review.
-#     """
-#     if not engine:
-#         raise HTTPException(status_code=500, detail="Database not configured")
-        
-#     try:
-#         with engine.begin() as conn:
-    # except Exception as e:
-    #     raise HTTPException(status_code=500, detail=f"Failed to update images: {str(e)}")
 
-@router.get("/presigned-url")
+@router.get("/img-presigned-url")
 def generate_s3_presigned_url(review_id: str, pic_num: int, filename: str, content_type: str, user_id: str = Depends(get_current_user)):
     """
     Generate a pre-signed URL for the frontend to upload an image directly to S3.
@@ -227,3 +220,37 @@ def generate_s3_presigned_url(review_id: str, pic_num: int, filename: str, conte
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Could not generate S3 presigned URL: {str(e)}")
+
+
+@router.patch("/img-database")
+def update_review_images(review_id: str, payload: ReviewImagesUpdate, user_id: str = Depends(get_current_user)):
+    """
+    Called by the frontend AFTER successfully uploading images to S3.
+    This links the final S3 URLs back to the review.
+    """
+    if not engine:
+        raise HTTPException(status_code=500, detail="Database not configured")
+        
+    try:
+        with engine.begin() as conn:
+            # First, check if review belongs to user
+            review_exists = conn.execute(
+                text("SELECT id FROM Reviews WHERE id = :review_id AND user_id = :user_id"),
+                {"review_id": review_id, "user_id": user_id}
+            ).fetchone()
+            if not review_exists:
+                raise HTTPException(status_code=403, detail="Not authorized to update this review or review not found")
+            
+            conn.execute(text("""
+                UPDATE Reviews
+                SET images = :images
+                WHERE id = :review_id
+            """), {
+                "review_id": review_id,
+                "images": json.dumps(payload.images)
+            })
+            return {"message": "Images updated successfully"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to update images: {str(e)}")
