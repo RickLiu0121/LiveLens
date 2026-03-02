@@ -29,7 +29,7 @@ def search_venues(
     if not engine:
         raise HTTPException(status_code=500, detail="Database not configured")
 
-    allowed_sort_fields = {"name", "capacity", "city"}
+    allowed_sort_fields = {"name", "capacity", "city", "rating"}
     if sort_by not in allowed_sort_fields:
         raise HTTPException(
             status_code=400,
@@ -73,7 +73,7 @@ def search_venues(
                 LEFT JOIN Reviews r ON r.seat_id = s.id
                 {where_clause}
                 GROUP BY v.id, v.name, v.city, v.capacity, v.tags
-                ORDER BY v.{sort_by} {order}
+                ORDER BY {"avg_rating" if sort_by == "rating" else f"v.{sort_by}"} {order}
                 LIMIT :limit OFFSET :offset
             """)
             result = conn.execute(query, params)

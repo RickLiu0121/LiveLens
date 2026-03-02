@@ -214,6 +214,15 @@ def test_sort_venues_by_name_asc():
     assert names == sorted(names)
 
 
+def test_sort_venues_by_rating(seed_venues):
+    """Sort venues by avg rating descending should return 200 and results in desc order."""
+    response = client.get("/search/venues", params={"sort_by": "rating", "order": "desc"})
+    assert response.status_code == 200
+    data = response.json()
+    ratings = [r["rating"] for r in data["results"] if r["rating"] is not None]
+    assert ratings == sorted(ratings, reverse=True)
+
+
 def test_sort_invalid_field():
     """Invalid sort field should return 400."""
     response = client.get("/search/venues", params={"sort_by": "invalid_field"})

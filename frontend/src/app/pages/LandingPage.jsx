@@ -1,8 +1,8 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Link } from "react-router";
 import { venues as staticVenues } from "../data/venues.js";
 import { VenueCard } from "../components/VenueCard.jsx";
-import { Search, Music, Users, Star, TrendingUp } from "lucide-react";
+import { Search, Music, Users, Star, TrendingUp, ChevronDown } from "lucide-react";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
 
@@ -11,10 +11,30 @@ export function LandingPage() {
   const [venues, setVenues] = useState([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [sortBy, setSortBy] = useState("name");
+  const [order, setOrder] = useState("asc");
+  // "name asc" = Relevance (default), "rating desc" = Rating
+  const [sortOpen, setSortOpen] = useState(false);
+  const sortRef = useRef(null);
+
+  const sortOptions = [
+    { label: "Relevance", sortBy: "name", order: "asc" },
+    { label: "Rating", sortBy: "rating", order: "desc" },
+  ];
+
+  useEffect(() => {
+    function handleClickOutside(e) {
+      if (sortRef.current && !sortRef.current.contains(e.target)) {
+        setSortOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   useEffect(() => {
     const timeout = setTimeout(() => {
-      const params = new URLSearchParams({ limit: "50" });
+      const params = new URLSearchParams({ limit: "50", sort_by: sortBy, order });
       if (query) params.set("q", query);
       setLoading(true);
       fetch(`${API_BASE}/search/venues?${params}`)
@@ -27,7 +47,7 @@ export function LandingPage() {
         .finally(() => setLoading(false));
     }, 150);
     return () => clearTimeout(timeout);
-  }, [query]);
+  }, [query, sortBy, order]);
 
   const totalReviews = staticVenues.reduce((sum, venue) => sum + venue.reviewCount, 0);
   const totalVenues = staticVenues.length;
@@ -138,16 +158,44 @@ export function LandingPage() {
           </p>
         </div>
 
-        <div className="mb-8 max-w-2xl mx-auto">
-          <div className="relative">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-            <input
-              type="text"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search venues..."
-              className="w-full pl-12 pr-4 py-3 rounded-lg bg-gray-800/50 border border-gray-700 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent backdrop-blur-sm"
-            />
+        <div className="mb-8 max-w-4xl mx-auto">
+          <div className="flex gap-3">
+            <div className="relative flex-1">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+              <input
+                type="text"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Search venues..."
+                className="w-full pl-12 pr-4 py-3 rounded-lg bg-gray-800/50 border border-gray-700 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent backdrop-blur-sm"
+              />
+            </div>
+            <div ref={sortRef} className="relative">
+              <button
+                onClick={() => setSortOpen(o => !o)}
+                className="flex items-center justify-between gap-2 px-4 py-3 rounded-lg bg-gray-800/50 border border-gray-700 text-white hover:border-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 backdrop-blur-sm whitespace-nowrap w-48"
+              >
+                <span>Sort by: <span className="text-gray-300">{sortOptions.find(o => o.sortBy === sortBy && o.order === order)?.label ?? "Relevance"}</span></span>
+                <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${sortOpen ? "rotate-180" : ""}`} />
+              </button>
+              {sortOpen && (
+                <div className="absolute right-0 mt-2 w-full bg-gray-800 border border-gray-700 rounded-lg shadow-xl z-10 overflow-hidden">
+                  {sortOptions.map((opt) => (
+                    <button
+                      key={`${opt.sortBy}-${opt.order}`}
+                      onClick={() => { setSortBy(opt.sortBy); setOrder(opt.order); setSortOpen(false); }}
+                      className={`w-full text-left px-4 py-3 text-sm transition-colors hover:bg-gray-700 ${
+                        sortBy === opt.sortBy && order === opt.order
+                          ? "text-blue-400 bg-gray-700/50"
+                          : "text-gray-200"
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
