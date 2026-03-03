@@ -18,12 +18,7 @@ export function ReviewCard({ review }) {
         </div>
         <div className="flex-1">
           <div className="flex items-center justify-between mb-2">
-            <div>
-              <h3 className="font-semibold text-white">{review.author}</h3>
-              {review.seatInfo && (
-                <p className="text-xs text-gray-500 mt-0.5">{review.seatInfo}</p>
-              )}
-            </div>
+            <h3 className="font-semibold text-white">{review.author}</h3>
             <span className="text-sm text-gray-400">
               {formatDate(review.date)}
             </span>
