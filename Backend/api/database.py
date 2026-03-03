@@ -29,9 +29,16 @@ if DATABASE_URL:
                   name              TEXT NOT NULL,
                   city              TEXT,
                   capacity          INTEGER,
-                  tags              TEXT
+                  tags              TEXT,
+                  seat_map_2d_url   TEXT,
+                  seat_map_meta     TEXT
                 );
             """))
+            # Auto-migrate local DB for image_url
+            try:
+                conn.execute(text("ALTER TABLE Venues ADD COLUMN image_url TEXT;"))
+            except Exception:
+                pass # Column already exists
             conn.execute(text("""
                 CREATE TABLE IF NOT EXISTS Events (
                   id                TEXT PRIMARY KEY,
@@ -50,7 +57,8 @@ if DATABASE_URL:
                   section              TEXT,
                   row                  TEXT,
                   seat_number          TEXT,
-                  distance_to_stage    FLOAT
+                  distance_to_stage    FLOAT,
+                  UNIQUE(venue_id, section, row, seat_number)
                 );
             """))
             conn.execute(text("""
@@ -58,6 +66,7 @@ if DATABASE_URL:
                   id                TEXT PRIMARY KEY,
                   user_id           TEXT REFERENCES Users(id),
                   event_id          TEXT REFERENCES Events(id),
+                  venue_id          TEXT REFERENCES Venues(id),
                   seat_id           TEXT REFERENCES Seats(id),
                   rating_visual     INTEGER,
                   rating_sound      INTEGER,
