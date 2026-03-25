@@ -1,24 +1,44 @@
 import os
 import json
-from zhipuai import ZhipuAI
-from typing import List
 import logging
+from typing import List
+
+try:
+    from zhipuai import ZhipuAI
+except ImportError:
+    ZhipuAI = None
 
 logger = logging.getLogger(__name__)
 
-# Initialize the ZhipuAI client. It will automatically pick up the ZHIPUAI_API_KEY environment variable.
-try:
-    client = ZhipuAI(api_key=os.environ.get("ZHIPUAI_API_KEY"))
-except Exception as e:
-    logger.warning(f"Failed to initialize ZhipuAI client: {e}")
-    client = None
+# We will initialize the client lazily inside the function 
+# to ensure load_dotenv() has already populated os.environ.
+_client = None
+
+def get_client():
+    global _client
+    if _client is None:
+        if ZhipuAI is None:
+            print("ZhipuAI package is not installed.")
+            return None
+        
+        api_key = os.environ.get("ZHIPUAI_API_KEY")
+        if not api_key:
+            print("ERROR: ZHIPUAI_API_KEY environment variable is missing!")
+            return None
+            
+        try:
+            _client = ZhipuAI(api_key=api_key)
+        except Exception as e:
+            print(f"Failed to initialize ZhipuAI client: {e}")
+            return None
+    return _client
 
 def extract_tags(review_text: str) -> List[str]:
     """
     Extracts 1 to 5 concise tags from the given review text using Zhipu AI.
     """
+    client = get_client()
     if not client:
-        logger.error("ZhipuAI client is not initialized. Cannot extract tags.")
         return []
 
     if not review_text or not review_text.strip():
@@ -49,16 +69,16 @@ def extract_tags(review_text: str) -> List[str]:
         # Clean the response in case the model adds markdown formatting (e.g. ```json ... ```)
         content = content.replace("```json", "").replace("```", "").strip()
         
-        # Parse the JSON string into a Python list
+            # Parse the JSON string into a Python list
         tags = json.loads(content)
         
         if isinstance(tags, list):
             # Limit to max 5 tags just in case
             return tags[:5]
         else:
-             logger.warning(f"ZhipuAI returned an invalid format for tags: {content}")
+             print(f"ZhipuAI returned an invalid format for tags: {content}")
              return []
              
     except Exception as e:
-        logger.error(f"Error extracting tags with ZhipuAI: {e}")
+        print(f"Exception inside extract_tags: {e}")
         return []
