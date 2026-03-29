@@ -1,7 +1,21 @@
+import { useState, useEffect } from "react";
 import { Outlet, Link } from "react-router";
 import ChatWindow from "./Chat/ChatWindow";
+import { User } from "lucide-react";
 
 export function RootLayout() {
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+  useEffect(() => {
+    setIsLoggedIn(!!localStorage.getItem("access_token"));
+
+    function onStorage() {
+      setIsLoggedIn(!!localStorage.getItem("access_token"));
+    }
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, []);
+
   return (
     <div className="min-h-screen bg-gray-900">
       <header className="bg-gray-900/95 backdrop-blur-md border-b border-gray-800 sticky top-0 z-50 shadow-lg shadow-black/20">
@@ -12,18 +26,29 @@ export function RootLayout() {
               <span className="text-xl font-bold text-white leading-none translate-y-0.5">VenueHub</span>
             </Link>
             <div className="flex items-center gap-3">
-              <Link
-                to="/login"
-                className="px-4 py-2 text-sm text-gray-300 hover:text-white transition-colors"
-              >
-                Sign in
-              </Link>
-              <Link
-                to="/register"
-                className="px-4 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
-              >
-                Sign up
-              </Link>
+              {isLoggedIn ? (
+                <Link
+                  to="/profile"
+                  className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center hover:scale-105 transition-transform"
+                >
+                  <User className="w-5 h-5 text-white" />
+                </Link>
+              ) : (
+                <>
+                  <Link
+                    to="/login"
+                    className="px-4 py-2 text-sm text-gray-300 hover:text-white transition-colors"
+                  >
+                    Sign in
+                  </Link>
+                  <Link
+                    to="/register"
+                    className="px-4 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+                  >
+                    Sign up
+                  </Link>
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -35,3 +60,4 @@ export function RootLayout() {
     </div>
   );
 }
+
