@@ -183,19 +183,33 @@ export function VenuePage() {
                 </div>
               </div>
               
-              {/* 3D View Button at bottom right */}
-              <button 
-                onClick={() => setShow3DModal(true)}
-                className="group flex items-center gap-3 px-5 py-3 bg-gray-900/60 hover:bg-black/70 backdrop-blur-md rounded-2xl border border-white/10 hover:border-blue-500/50 text-white font-medium transition-all duration-300 shadow-[0_8px_30px_rgba(0,0,0,0.5)] hover:shadow-[0_10px_40px_rgba(59,130,246,0.25)] hover:-translate-y-1"
-              >
-                <div className="bg-blue-500/20 p-2.5 rounded-xl group-hover:bg-blue-500/40 transition-colors border border-blue-500/20">
-                  <Box className="w-5 h-5 text-blue-400 drop-shadow-[0_0_8px_rgba(59,130,246,0.8)]" />
-                </div>
-                <div className="flex flex-col items-start pr-1">
-                  <span className="text-sm font-semibold tracking-wide text-gray-100 group-hover:text-white transition-colors">3D View</span>
-                  <span className="text-[10px] text-blue-300/70 font-mono tracking-wider">INTERACTIVE</span>
-                </div>
-              </button>
+              {/* Action Buttons at bottom right */}
+              <div className="flex items-center gap-4">
+                <button 
+                  onClick={() => setShowReviewForm(true)}
+                  className="group flex items-center gap-3 px-5 py-3 bg-gray-900/60 hover:bg-black/70 backdrop-blur-md rounded-2xl border border-white/10 hover:border-green-500/50 text-white font-medium transition-all duration-300 shadow-[0_8px_30px_rgba(0,0,0,0.5)] hover:shadow-[0_10px_40px_rgba(74,222,128,0.25)] hover:-translate-y-1"
+                >
+                  <div className="bg-green-500/20 p-2.5 rounded-xl group-hover:bg-green-500/40 transition-colors border border-green-500/20">
+                    <PenLine className="w-5 h-5 text-green-400 drop-shadow-[0_0_8px_rgba(74,222,128,0.8)]" />
+                  </div>
+                  <div className="flex flex-col items-start pr-1">
+                    <span className="text-sm font-semibold tracking-wide text-gray-100 group-hover:text-white transition-colors">Write Review</span>
+                    <span className="text-[10px] text-green-300/70 font-mono tracking-wider">SHARE EXPERTNESS</span>
+                  </div>
+                </button>
+                <button 
+                  onClick={() => setShow3DModal(true)}
+                  className="group flex items-center gap-3 px-5 py-3 bg-gray-900/60 hover:bg-black/70 backdrop-blur-md rounded-2xl border border-white/10 hover:border-blue-500/50 text-white font-medium transition-all duration-300 shadow-[0_8px_30px_rgba(0,0,0,0.5)] hover:shadow-[0_10px_40px_rgba(59,130,246,0.25)] hover:-translate-y-1"
+                >
+                  <div className="bg-blue-500/20 p-2.5 rounded-xl group-hover:bg-blue-500/40 transition-colors border border-blue-500/20">
+                    <Box className="w-5 h-5 text-blue-400 drop-shadow-[0_0_8px_rgba(59,130,246,0.8)]" />
+                  </div>
+                  <div className="flex flex-col items-start pr-1">
+                    <span className="text-sm font-semibold tracking-wide text-gray-100 group-hover:text-white transition-colors">3D View</span>
+                    <span className="text-[10px] text-blue-300/70 font-mono tracking-wider">INTERACTIVE</span>
+                  </div>
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -265,15 +279,7 @@ export function VenuePage() {
             </div>
             </div>
           </div>
-          <div className="flex justify-end mb-4">
-            <button
-              onClick={() => setShowReviewForm(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors"
-            >
-              <PenLine className="w-4 h-4" />
-              Write a Review
-            </button>
-          </div>
+
 
           {showReviewForm && (
             <ReviewFormModal

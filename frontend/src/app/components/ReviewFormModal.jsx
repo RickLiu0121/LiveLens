@@ -335,24 +335,45 @@ export function ReviewFormModal({ venueId, onClose, onSuccess }) {
   }
 
   return createPortal(
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm overflow-y-auto">
-      <div className="w-full max-w-2xl bg-gray-900 border border-gray-700 rounded-xl shadow-2xl my-auto">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+      <div className="w-full max-w-2xl bg-gray-900 border border-gray-700 rounded-xl shadow-2xl flex flex-col max-h-[90vh]">
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-gray-700 px-6 py-4 bg-gray-800/50 sticky top-0 z-10 backdrop-blur-sm">
+        <div className="flex items-center justify-between border-b border-gray-700 px-6 py-4 bg-gray-800/50 sticky top-0 z-10 backdrop-blur-sm shrink-0">
           <div>
             <h3 className="text-lg font-bold text-white">Write a Review</h3>
-            <p className="text-xs text-gray-400 mt-0.5">Share your experience with the community</p>
+            <p className="text-xs text-gray-400 mt-0.5">Share your experience</p>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-gray-700 transition-colors"
-          >
-            <X className="w-5 h-5 text-gray-400" />
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleSaveDraft}
+              disabled={savingDraft || submitting}
+              className="px-3 py-2 bg-gray-700 hover:bg-gray-600 text-white text-sm font-medium rounded-lg transition-all flex items-center gap-1"
+            >
+              {savingDraft ? <Loader2 className="w-3 h-3 animate-spin" /> : null}
+              {draftSaved ? "Saved!" : "Save Draft"}
+            </button>
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-3 py-2 bg-gray-700 hover:bg-gray-600 text-white text-sm font-medium rounded-lg transition-all"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={handleSubmit}
+              disabled={submitting}
+              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-70 text-white text-sm font-bold rounded-lg shadow-lg shadow-blue-500/20 transition-all flex items-center gap-1"
+            >
+              {submitting ? (
+                <><Loader2 className="w-3 h-3 animate-spin" />Posting...</>
+              ) : "Post"}
+            </button>
+          </div>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-8">
+        <form onSubmit={handleSubmit} className="p-6 space-y-6 overflow-y-auto w-full" style={{scrollbarWidth: 'thin'}}>
 
           {/* Event Selection */}
           <section className="space-y-3">
@@ -500,8 +521,7 @@ export function ReviewFormModal({ venueId, onClose, onSuccess }) {
             </div>
           )}
 
-          {/* Footer */}
-          <div className="pt-4 border-t border-gray-700 flex flex-col md:flex-row items-center justify-between gap-4">
+          <div className="pt-2 border-t border-gray-700 mt-4">
             <label className="flex items-center gap-3 cursor-pointer">
               <input
                 type="checkbox"
@@ -511,33 +531,6 @@ export function ReviewFormModal({ venueId, onClose, onSuccess }) {
               />
               <span className="text-sm text-gray-400">Post review anonymously</span>
             </label>
-            <div className="flex gap-3 w-full md:w-auto">
-              <button
-                type="button"
-                onClick={handleSaveDraft}
-                disabled={savingDraft || submitting}
-                className="flex-1 md:flex-none px-6 py-3 bg-gray-700 hover:bg-gray-600 text-white font-medium rounded-lg transition-all active:scale-95 flex items-center justify-center gap-2"
-              >
-                {savingDraft ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
-                {draftSaved ? "Saved!" : "Save Draft"}
-              </button>
-              <button
-                type="button"
-                onClick={onClose}
-                className="flex-1 md:flex-none px-6 py-3 bg-gray-700 hover:bg-gray-600 text-white font-medium rounded-lg transition-all active:scale-95"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                disabled={submitting}
-                className="flex-1 md:flex-none px-10 py-3 bg-blue-600 hover:bg-blue-700 disabled:opacity-70 text-white font-bold rounded-lg shadow-lg shadow-blue-500/20 transition-all active:scale-95 flex items-center justify-center gap-2"
-              >
-                {submitting ? (
-                  <><Loader2 className="w-4 h-4 animate-spin" />Posting...</>
-                ) : "Post Review"}
-              </button>
-            </div>
           </div>
 
         </form>
