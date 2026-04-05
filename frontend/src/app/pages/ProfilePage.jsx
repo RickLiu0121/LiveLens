@@ -12,6 +12,8 @@ import {
   LogOut,
   Shield,
   ChevronRight,
+  Trash2,
+  AlertTriangle,
 } from "lucide-react";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
@@ -21,6 +23,8 @@ export function ProfilePage() {
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState(null);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     const token = localStorage.getItem("access_token");
@@ -52,6 +56,36 @@ export function ProfilePage() {
     localStorage.removeItem("access_token");
     window.dispatchEvent(new Event("storage"));
     navigate("/");
+  }
+
+  async function handleDeleteReview(reviewId) {
+    const token = localStorage.getItem("access_token");
+    if (!token) return;
+    setDeleting(true);
+    try {
+      const res = await fetch(`${API_BASE}/reviews/${reviewId}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.detail ?? "Failed to delete review");
+      }
+      // Remove from local state instantly
+      setProfile((prev) => ({
+        ...prev,
+        reviews: prev.reviews.filter((r) => r.id !== reviewId),
+        stats: {
+          ...prev.stats,
+          total_reviews: Math.max(0, prev.stats.total_reviews - 1),
+        },
+      }));
+    } catch (err) {
+      alert(err.message);
+    } finally {
+      setDeleting(false);
+      setConfirmDeleteId(null);
+    }
   }
 
   function formatDate(dateString) {
@@ -207,7 +241,7 @@ export function ProfilePage() {
           ) : (
             <div className="space-y-4">
               {reviews.map((review) => (
-                <div key={review.id}>
+                <div key={review.id} className="relative group/card">
                   {/* Venue badge above the review card */}
                   <Link
                     to={`/venue/${review.venue_id}`}
@@ -241,8 +275,54 @@ export function ProfilePage() {
                       images: review.images ?? null,
                     }}
                   />
+                  {/* Delete button — appears on hover */}
+                  <button
+                    onClick={() => setConfirmDeleteId(review.id)}
+                    title="Delete this review"
+                    className="absolute top-3 right-3 p-1.5 rounded-lg bg-gray-900/80 text-gray-500 hover:text-red-400 hover:bg-red-500/10 border border-transparent hover:border-red-500/30 opacity-0 group-hover/card:opacity-100 transition-all duration-200 z-10"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
                 </div>
               ))}
+            </div>
+          )}
+
+          {/* ── Delete Confirmation Dialog ── */}
+          {confirmDeleteId && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
+              <div className="bg-gray-800 border border-gray-700 rounded-2xl p-6 max-w-sm w-full shadow-2xl">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="p-2 rounded-xl bg-red-500/10 text-red-400">
+                    <AlertTriangle className="w-5 h-5" />
+                  </div>
+                  <h3 className="text-white font-semibold text-lg">Delete Review?</h3>
+                </div>
+                <p className="text-gray-400 text-sm mb-6">
+                  This action is permanent and cannot be undone. All comments on this review will also be removed.
+                </p>
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => setConfirmDeleteId(null)}
+                    disabled={deleting}
+                    className="flex-1 px-4 py-2.5 rounded-xl bg-gray-700 hover:bg-gray-600 text-white text-sm font-medium transition-colors disabled:opacity-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={() => handleDeleteReview(confirmDeleteId)}
+                    disabled={deleting}
+                    className="flex-1 px-4 py-2.5 rounded-xl bg-red-600 hover:bg-red-500 text-white text-sm font-medium transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                  >
+                    {deleting ? (
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    ) : (
+                      <Trash2 className="w-4 h-4" />
+                    )}
+                    {deleting ? "Deleting…" : "Delete"}
+                  </button>
+                </div>
+              </div>
             </div>
           )}
         </div>

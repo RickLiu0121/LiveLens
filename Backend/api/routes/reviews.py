@@ -302,6 +302,46 @@ def generate_s3_presigned_url(review_id: str, pic_num: int, filename: str, conte
         raise HTTPException(status_code=500, detail=f"Could not generate S3 presigned URL: {str(e)}")
 
 
+@router.delete("/{review_id}")
+def delete_review(review_id: str, user_id: str = Depends(get_current_user)):
+    """
+    Delete a review by its ID. Only the owner of the review can delete it.
+    Requires a valid JWT in the Authorization header.
+    """
+    if not engine:
+        raise HTTPException(status_code=500, detail="Database not configured")
+    try:
+        with engine.begin() as conn:
+            # Verify the review exists and belongs to the requesting user
+            review_row = conn.execute(
+                text("SELECT id FROM Reviews WHERE id = :review_id AND user_id = :user_id"),
+                {"review_id": review_id, "user_id": user_id}
+            ).fetchone()
+            if not review_row:
+                raise HTTPException(
+                    status_code=403,
+                    detail="Review not found or you are not authorized to delete it"
+                )
+
+            # Delete associated sub-reviews first (FK constraint)
+            conn.execute(
+                text("DELETE FROM SubReviews WHERE review_id = :review_id"),
+                {"review_id": review_id}
+            )
+
+            # Delete the review itself
+            conn.execute(
+                text("DELETE FROM Reviews WHERE id = :review_id"),
+                {"review_id": review_id}
+            )
+
+            return {"message": "Review deleted successfully"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to delete review: {str(e)}")
+
+
 @router.get("/{review_id}")
 def get_review(review_id: str):
     """
