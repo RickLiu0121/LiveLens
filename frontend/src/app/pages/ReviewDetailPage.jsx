@@ -22,7 +22,7 @@ const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
 
 /* ── Helper components ──────────────────────────────────────────────── */
 
-function RatingBar({ label, value, icon: Icon, color }) {
+function RatingBar({ label, value, icon: Icon, color, bgColor }) {
   const pct = ((value ?? 0) / 5) * 100;
   return (
     <div className="flex items-center gap-3">
@@ -32,7 +32,7 @@ function RatingBar({ label, value, icon: Icon, color }) {
       </div>
       <div className="flex-1 h-2 bg-gray-700 rounded-full overflow-hidden">
         <div
-          className={`h-full rounded-full transition-all duration-700 ease-out ${color.replace("text-", "bg-")}`}
+          className={`h-full rounded-full transition-all duration-700 ease-out ${bgColor}`}
           style={{ width: `${pct}%` }}
         />
       </div>
@@ -394,9 +394,9 @@ export function ReviewDetailPage() {
                 Rating Breakdown
               </h2>
               <div className="space-y-3">
-                <RatingBar label="Visual" value={review.rating_visual} icon={Eye} color="text-blue-400" />
-                <RatingBar label="Sound"  value={review.rating_sound}  icon={Volume2} color="text-purple-400" />
-                <RatingBar label="Value"  value={review.rating_value}  icon={BadgeDollarSign} color="text-pink-400" />
+                <RatingBar label="Visual" value={review.rating_visual} icon={Eye} color="text-blue-400" bgColor="bg-blue-400" />
+                <RatingBar label="Sound"  value={review.rating_sound}  icon={Volume2} color="text-purple-400" bgColor="bg-purple-400" />
+                <RatingBar label="Value"  value={review.rating_value}  icon={BadgeDollarSign} color="text-pink-400" bgColor="bg-pink-400" />
               </div>
             </div>
 
