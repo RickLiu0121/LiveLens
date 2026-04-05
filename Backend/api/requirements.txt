@@ -15,3 +15,4 @@ google-generativeai
 zhipuai
 google-auth
 requests
+Pillow
