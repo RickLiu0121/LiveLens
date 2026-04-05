@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { Link } from "react-router";
 import { X, Star, Camera, ChevronDown, Loader2, CheckCircle, LogIn, AlertCircle } from "lucide-react";
+import { createPortal } from "react-dom";
 import { ImageLightbox } from "./ImageLightbox";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
@@ -288,8 +289,8 @@ export function ReviewFormModal({ venueId, onClose, onSuccess }) {
 
   // Not logged in — show login prompt instead of form
   if (!isLoggedIn) {
-    return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm overflow-y-auto">
+    return createPortal(
+      <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm overflow-y-auto">
         <div className="w-full max-w-md bg-gray-900 border border-gray-700 rounded-xl shadow-2xl">
           <div className="flex flex-col items-center justify-center gap-4 py-12 px-8 text-center">
             <div className="w-14 h-14 rounded-full bg-blue-500/15 border border-blue-500/30 flex items-center justify-center">
@@ -309,13 +310,14 @@ export function ReviewFormModal({ venueId, onClose, onSuccess }) {
             </div>
           </div>
         </div>
-      </div>
+      </div>,
+      document.body
     );
   }
 
   if (submitted) {
-    return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm overflow-y-auto">
+    return createPortal(
+      <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm overflow-y-auto">
         <div className="w-full max-w-md bg-gray-900 border border-green-500/30 rounded-xl shadow-2xl">
           <div className="flex flex-col items-center justify-center gap-4 py-16 px-8 text-center">
             <div className="w-16 h-16 rounded-full bg-green-500/15 border border-green-500/30 flex items-center justify-center">
@@ -327,12 +329,13 @@ export function ReviewFormModal({ venueId, onClose, onSuccess }) {
             </div>
           </div>
         </div>
-      </div>
+      </div>,
+      document.body
     );
   }
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm overflow-y-auto">
+  return createPortal(
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm overflow-y-auto">
       <div className="w-full max-w-2xl bg-gray-900 border border-gray-700 rounded-xl shadow-2xl my-auto">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-gray-700 px-6 py-4 bg-gray-800/50 sticky top-0 z-10 backdrop-blur-sm">
@@ -539,6 +542,7 @@ export function ReviewFormModal({ venueId, onClose, onSuccess }) {
 
         </form>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
