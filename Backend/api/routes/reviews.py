@@ -8,22 +8,28 @@ from typing import List, Optional
 from botocore.exceptions import NoCredentialsError, ClientError
 from botocore.config import Config
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
 from fastapi.security import OAuth2PasswordBearer
 from pydantic import BaseModel
 from sqlalchemy import text
 
 from ..database import engine
 from ..auth_utils import SECRET_KEY, ALGORITHM
-from ..utils.zhipu_client import extract_tags
+# from ..utils.zhipu_client import extract_tags  # AI tagging disabled
 
 # S3 Configuration
 S3_BUCKET_NAME = os.getenv("S3_BUCKET_NAME", "livelens-images")
 AWS_REGION = os.getenv("AWS_REGION", "us-east-2")
+AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID")
+AWS_SECRET_ACCESS_KEY = os.getenv("AWS_SECRET_ACCESS_KEY")
+AWS_SESSION_TOKEN = os.getenv("AWS_SESSION_TOKEN")  # Required for temporary STS credentials
 
 s3_client = boto3.client(
-    's3', 
+    's3',
     region_name=AWS_REGION,
+    aws_access_key_id=AWS_ACCESS_KEY_ID,
+    aws_secret_access_key=AWS_SECRET_ACCESS_KEY,
+    aws_session_token=AWS_SESSION_TOKEN,  # None for long-term keys, required for STS/SSO
     config=Config(
         s3={'addressing_style': 'virtual'},
         signature_version='s3v4'
@@ -65,6 +71,9 @@ class ReviewCreate(BaseModel):
 
 class ReviewImagesUpdate(BaseModel):
     images: List[str]
+
+class SubReviewCreate(BaseModel):
+    text: str
 
 @router.post("/")
 def create_review(review: ReviewCreate, user_id: str = Depends(get_current_user)):
@@ -111,9 +120,8 @@ def create_review(review: ReviewCreate, user_id: str = Depends(get_current_user)
     review_id = str(uuid.uuid4())
     images_json = json.dumps(review.images) if review.images else None
     
-    # Generate AI tags for this review text
-    extracted_tags = extract_tags(review.text)
-    tags_json = json.dumps(extracted_tags) if extracted_tags else None
+    extracted_tags = []
+    tags_json = None
     
     try:
         with engine.begin() as conn:
@@ -215,13 +223,44 @@ def create_review(review: ReviewCreate, user_id: str = Depends(get_current_user)
             return {
                 "message": "Review submitted successfully", 
                 "review_id": review_id, 
-                "overall_rating": overall_rating,
-                "tags": extracted_tags
+                "overall_rating": overall_rating
             }
     except HTTPException:
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to submit review: {str(e)}")
+
+
+@router.post("/upload-image")
+def upload_review_image(
+    review_id: str,
+    pic_num: int,
+    file: UploadFile = File(...),
+    user_id: str = Depends(get_current_user)
+):
+    """
+    Backend-proxied image upload to S3.
+    Accepts a multipart image file and uploads it to S3 server-side,
+    avoiding the need for S3 CORS configuration on the bucket.
+    Returns the public URL of the uploaded image.
+    """
+    file_extension = file.filename.split(".")[-1].lower()
+    unique_filename = f"{review_id}_{pic_num}.{file_extension}"
+    s3_key = f"reviews/{unique_filename}"
+
+    try:
+        s3_client.upload_fileobj(
+            file.file,
+            S3_BUCKET_NAME,
+            s3_key,
+            ExtraArgs={"ContentType": file.content_type},
+        )
+    except Exception as e:
+        import traceback; traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"S3 upload failed: {str(e)}")
+
+    image_url = f"https://{S3_BUCKET_NAME}.s3.{AWS_REGION}.amazonaws.com/{s3_key}"
+    return {"url": image_url}
 
 
 @router.get("/img-presigned-url")
@@ -306,6 +345,30 @@ def get_review(review_id: str):
                 except Exception:
                     return []
 
+            # Fetch sub-reviews for this review
+            sub_rows = conn.execute(
+                text("""
+                    SELECT sr.id, sr.user_id, sr.text, sr.created_at,
+                           u.email
+                    FROM SubReviews sr
+                    LEFT JOIN Users u ON sr.user_id = u.id
+                    WHERE sr.review_id = :review_id
+                    ORDER BY sr.created_at ASC
+                """),
+                {"review_id": review_id},
+            ).fetchall()
+
+            sub_reviews = [
+                {
+                    "id": str(sr[0]),
+                    "user_id": str(sr[1]) if sr[1] else None,
+                    "text": sr[2],
+                    "created_at": sr[3],
+                    "user_email": sr[4],
+                }
+                for sr in sub_rows
+            ]
+
             return {
                 "id":             row[0],
                 "user_id":        row[1],
@@ -327,6 +390,7 @@ def get_review(review_id: str):
                 "venue_name":     row[17],
                 "event_name":     row[18],
                 "event_date":     row[19],
+                "sub_reviews":    sub_reviews,
             }
     except HTTPException:
         raise
@@ -366,3 +430,84 @@ def update_review_images(review_id: str, payload: ReviewImagesUpdate, user_id: s
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to update images: {str(e)}")
+
+
+@router.post("/{review_id}/sub-reviews")
+def create_sub_review(review_id: str, payload: SubReviewCreate, user_id: str = Depends(get_current_user)):
+    """
+    Post a sub-review (comment) on an existing review. Requires authentication.
+    """
+    if not engine:
+        raise HTTPException(status_code=500, detail="Database not configured")
+    if not payload.text or not payload.text.strip():
+        raise HTTPException(status_code=400, detail="Sub-review text cannot be empty")
+
+    sub_review_id = str(uuid.uuid4())
+    try:
+        with engine.begin() as conn:
+            # Verify the parent review exists
+            review_exists = conn.execute(
+                text("SELECT 1 FROM Reviews WHERE id = :review_id"),
+                {"review_id": review_id},
+            ).scalar()
+            if not review_exists:
+                raise HTTPException(status_code=404, detail="Parent review not found")
+
+            conn.execute(
+                text("""
+                    INSERT INTO SubReviews (id, review_id, user_id, text, created_at)
+                    VALUES (:id, :review_id, :user_id, :text, :created_at)
+                """),
+                {
+                    "id": sub_review_id,
+                    "review_id": review_id,
+                    "user_id": user_id,
+                    "text": payload.text.strip(),
+                    "created_at": datetime.utcnow(),
+                },
+            )
+            return {
+                "message": "Sub-review posted successfully",
+                "sub_review_id": sub_review_id,
+            }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to post sub-review: {str(e)}")
+
+
+@router.get("/{review_id}/sub-reviews")
+def get_sub_reviews(review_id: str):
+    """
+    Get all sub-reviews (comments) for a specific review. Public endpoint.
+    """
+    if not engine:
+        raise HTTPException(status_code=500, detail="Database not configured")
+    try:
+        with engine.connect() as conn:
+            rows = conn.execute(
+                text("""
+                    SELECT sr.id, sr.user_id, sr.text, sr.created_at,
+                           u.email
+                    FROM SubReviews sr
+                    LEFT JOIN Users u ON sr.user_id = u.id
+                    WHERE sr.review_id = :review_id
+                    ORDER BY sr.created_at ASC
+                """),
+                {"review_id": review_id},
+            ).fetchall()
+
+            return {
+                "sub_reviews": [
+                    {
+                        "id": str(r[0]),
+                        "user_id": str(r[1]) if r[1] else None,
+                        "text": r[2],
+                        "created_at": r[3],
+                        "user_email": r[4],
+                    }
+                    for r in rows
+                ]
+            }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to fetch sub-reviews: {str(e)}")
