@@ -108,26 +108,47 @@ export function ReviewFormModal({ venueId, onClose, onSuccess }) {
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [errors, setErrors] = useState([]);
+  const [draftId, setDraftId] = useState(null);
+  const [savingDraft, setSavingDraft] = useState(false);
+  const [draftSaved, setDraftSaved] = useState(false);
   const fileInputRef = useRef(null);
 
   const isLoggedIn = !!localStorage.getItem("access_token");
-
-  const numSort = (a, b) => (isNaN(a) || isNaN(b) ? a.localeCompare(b) : Number(a) - Number(b));
-  const sections = [...new Set(seats.map((s) => s.section))].sort(numSort);
-  const rows = [...new Set(seats.filter((s) => s.section === section).map((s) => s.row))].sort(numSort);
-  const seatNumbers = [...new Set(seats.filter((s) => s.section === section && s.row === row).map((s) => s.seat_number))].sort(numSort);
 
   useEffect(() => {
     fetch(`${API_BASE}/review-form/events?venue_id=${venueId}`)
       .then((r) => r.json())
       .then((data) => setEvents(Array.isArray(data) ? data : []))
       .catch(() => setEvents([]));
-
-    fetch(`${API_BASE}/search/seats?venue_id=${venueId}&limit=2000`)
-      .then((r) => r.json())
-      .then((data) => setSeats(data.results ?? []))
-      .catch(() => setSeats([]));
   }, [venueId]);
+
+  useEffect(() => {
+    if (!isLoggedIn) return;
+    const token = localStorage.getItem("access_token");
+    fetch(`${API_BASE}/review-drafts/`, {
+      headers: { Authorization: `Bearer ${token}` }
+    })
+      .then(r => r.json())
+      .then(drafts => {
+        if (!Array.isArray(drafts)) return;
+        const venueDraft = drafts.find(d => d.draft_data?.venue_id === venueId);
+        if (venueDraft) {
+          setDraftId(venueDraft.id);
+          const data = venueDraft.draft_data;
+          if (data.event_id) setEventId(data.event_id);
+          if (data.section) setSection(data.section);
+          if (data.row) setRow(data.row);
+          if (data.seat_number) setSeatNumber(data.seat_number);
+          if (data.rating_visual) setRatingVisual(data.rating_visual);
+          if (data.rating_sound) setRatingSound(data.rating_sound);
+          if (data.rating_value) setRatingValue(data.rating_value);
+          if (data.price_paid) setPricePaid(data.price_paid);
+          if (data.text) setReviewText(data.text);
+          if (data.is_anonymous !== undefined) setIsAnonymous(data.is_anonymous);
+        }
+      })
+      .catch(console.error);
+  }, [venueId, isLoggedIn]);
 
   function handleFileChange(e) {
     const files = Array.from(e.target.files);
@@ -145,6 +166,44 @@ export function ReviewFormModal({ venueId, onClose, onSuccess }) {
       URL.revokeObjectURL(prev[index].preview);
       return prev.filter((_, i) => i !== index);
     });
+  }
+
+  async function handleSaveDraft() {
+    const token = localStorage.getItem("access_token");
+    if (!token) return;
+    setSavingDraft(true);
+
+    const draftData = {
+      venue_id: venueId,
+      event_id: eventId,
+      section,
+      row,
+      seat_number: seatNumber,
+      rating_visual: ratingVisual,
+      rating_sound: ratingSound,
+      rating_value: ratingValue,
+      price_paid: pricePaid,
+      text: reviewText,
+      is_anonymous: isAnonymous
+    };
+
+    try {
+      const res = await fetch(`${API_BASE}/review-drafts/`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ id: draftId, draft_data: draftData })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setDraftId(data.draft_id);
+        setDraftSaved(true);
+        setTimeout(() => setDraftSaved(false), 2000);
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setSavingDraft(false);
+    }
   }
 
   async function handleSubmit(e) {
@@ -213,6 +272,13 @@ export function ReviewFormModal({ venueId, onClose, onSuccess }) {
           body: JSON.stringify({ images: imageUrls }),
         });
       }
+    }
+
+    if (draftId) {
+      await fetch(`${API_BASE}/review-drafts/delete?draft_id=${draftId}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` }
+      });
     }
 
     setSubmitting(false);
@@ -293,41 +359,36 @@ export function ReviewFormModal({ venueId, onClose, onSuccess }) {
           {/* Seat Details */}
           <section className="space-y-3">
             <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-500">Seat Details</h3>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-3 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-1.5">Section</label>
-                <select
+                <input
+                  type="text"
                   value={section}
-                  onChange={(e) => { setSection(e.target.value); setRow(""); setSeatNumber(""); }}
-                  className="w-full bg-gray-800 border border-gray-600 rounded-lg px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none"
-                >
-                  <option value="">Select section...</option>
-                  {sections.map((s) => <option key={s} value={s}>{s}</option>)}
-                </select>
+                  onChange={(e) => setSection(e.target.value)}
+                  placeholder="e.g. 101"
+                  className="w-full bg-gray-800 border border-gray-600 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-1.5">Row</label>
-                <select
+                <input
+                  type="text"
                   value={row}
-                  onChange={(e) => { setRow(e.target.value); setSeatNumber(""); }}
-                  disabled={!section}
-                  className="w-full bg-gray-800 border border-gray-600 rounded-lg px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none disabled:opacity-40"
-                >
-                  <option value="">Select row...</option>
-                  {rows.map((r) => <option key={r} value={r}>{r}</option>)}
-                </select>
+                  onChange={(e) => setRow(e.target.value)}
+                  placeholder="e.g. A"
+                  className="w-full bg-gray-800 border border-gray-600 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1.5">Seat Number</label>
-                <select
+                <label className="block text-sm font-medium text-gray-300 mb-1.5">Seat No</label>
+                <input
+                  type="text"
                   value={seatNumber}
                   onChange={(e) => setSeatNumber(e.target.value)}
-                  disabled={!row}
-                  className="w-full bg-gray-800 border border-gray-600 rounded-lg px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none disabled:opacity-40"
-                >
-                  <option value="">Select seat...</option>
-                  {seatNumbers.map((n) => <option key={n} value={n}>{n}</option>)}
-                </select>
+                  placeholder="e.g. 1"
+                  className="w-full bg-gray-800 border border-gray-600 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
               </div>
             </div>
           </section>
@@ -444,6 +505,15 @@ export function ReviewFormModal({ venueId, onClose, onSuccess }) {
               <span className="text-sm text-gray-400">Post review anonymously</span>
             </label>
             <div className="flex gap-3 w-full md:w-auto">
+              <button
+                type="button"
+                onClick={handleSaveDraft}
+                disabled={savingDraft || submitting}
+                className="flex-1 md:flex-none px-6 py-3 bg-gray-700 hover:bg-gray-600 text-white font-medium rounded-lg transition-all active:scale-95 flex items-center justify-center gap-2"
+              >
+                {savingDraft ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+                {draftSaved ? "Saved!" : "Save Draft"}
+              </button>
               <button
                 type="button"
                 onClick={onClose}
