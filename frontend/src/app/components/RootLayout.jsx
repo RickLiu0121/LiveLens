@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 import { Outlet, Link } from "react-router";
-import ChatWindow from "./Chat/ChatWindow";
 import { User } from "lucide-react";
 
 export function RootLayout() {
@@ -56,7 +55,6 @@ export function RootLayout() {
       <main>
         <Outlet />
       </main>
-      <ChatWindow />
     </div>
   );
 }
